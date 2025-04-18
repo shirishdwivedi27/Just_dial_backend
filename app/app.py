@@ -132,31 +132,32 @@ def login():
     else:
         return jsonify({"msg": "Invalid email or password"}), 401
 
-@app.route('/api/businesses', methods=['POST'])
+@app.route('/businesses', methods=['POST'])
 @jwt_required()
 def create_business():
     data = request.get_json()
-    user_id = get_jwt_identity()
-
-    conn = get_db_connection()
-    conn.execute("""
-        INSERT INTO businesses (name, category, location, contact, description, owner_id)
-        VALUES (?, ?, ?, ?, ?, ?)
+    #user_id = get_jwt_identity()
+    #logging.info("____",user_id)
+    #print(user_id)
+    cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)  #
+    cursor.execute("""
+    INSERT INTO businesses (name, category, location, contact, description, owner_id)
+    VALUES (%s, %s, %s, %s, %s, %s)
     """, (
-        data['name'],
-        data.get('category'),
-        data.get('location'),
-        data.get('contact'),
-        data.get('description'),
-        user_id
+    data['name'],
+    data.get('category'),
+    data.get('location'),
+    data.get('contact'),
+    data.get('description'),
+    'p'
     ))
-    conn.commit()
-    conn.close()
+    cursor.commit()
+    cursor.close()
 
     return jsonify({"msg": "Business created successfully"}), 201
 
 
-@app.route('/api/businesses', methods=['GET'])
+@app.route('/businesses', methods=['GET'])
 def get_businesses():
     conn = get_db_connection()
     businesses = conn.execute("SELECT * FROM businesses").fetchall()
