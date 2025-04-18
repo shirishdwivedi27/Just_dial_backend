@@ -6,6 +6,7 @@ from flask_jwt_extended import JWTManager, create_access_token, jwt_required, ge
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 import os
+import MySQLdb.cursors
 from dotenv import load_dotenv
 import logging
 
@@ -21,13 +22,12 @@ app.config['MYSQL_PASSWORD'] = os.getenv('MYSQL_PASSWORD')
 app.config['MYSQL_DB'] = os.getenv('MYSQL_DB')
 app.config['MYSQL_PORT'] = int(os.getenv('MYSQL_PORT', 3306))
 
-app_config = {
-    'JWT_SECRET_KEY':os.getenv('JWT'),
-    'APP_URL': os.getenv('APP_URL'),
-    'API_KEY': os.getenv('API_KEY'),
-    'API_SECRET': os.getenv('API_SECRET'),
-    'SECRET_KEY': os.getenv('SECRET_KEY')
-}
+app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
+app.config['APP_URL'] = os.getenv('APP_URL')
+app.config['API_KEY'] = os.getenv('API_KEY')
+app.config['API_SECRET'] = os.getenv('API_SECRET')
+
 
 
 jwt = JWTManager(app)
@@ -61,6 +61,12 @@ def home():
     data={"message":"welcome to react-world","name":"shirish"}
     return jsonify(data),200
     
+@app.route('/protected', methods=['GET'])
+@jwt_required()
+def protected():
+    current_user = get_jwt_identity()
+    return jsonify(logged_in_as=current_user)
+
 
 @app.route('/register', methods=['POST'])
 def register():
@@ -97,29 +103,77 @@ def register():
         "access_token": access_token
     }), 201
 
+def get_db_connection():
+    conn = mysql.connection
+    return conn.cursor()
 
-@app.route('/api/login', methods=['POST'])
+@app.route('/login', methods=['POST'])
 def login():
     data = request.get_json()
-    
+    email = data.get('email')
+    password = data.get('password')
+
+    cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)  #
+    cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
+    user = cursor.fetchone()
+    cursor.close()
+
+    logging.info(user['username'])
+
+    if user and check_password_hash(user['password'], password):
+        access_token = create_access_token(identity=user['username'])
+        return jsonify({
+            "access_token": access_token,
+            "user": {
+                "id": user['username'],
+                "email": user['email']
+            }
+        }), 200
+    else:
+        return jsonify({"msg": "Invalid email or password"}), 401
 
 @app.route('/api/businesses', methods=['POST'])
 @jwt_required()
 def create_business():
     data = request.get_json()
-    # new_biz = Business(
-    #     name=data['name'],
-    #     category=data.get('category'),
-    #     location=data.get('location'),
-    #     contact=data.get('contact'),
-    #     description=data.get('description')
-    # )
-    
+    user_id = get_jwt_identity()
+
+    conn = get_db_connection()
+    conn.execute("""
+        INSERT INTO businesses (name, category, location, contact, description, owner_id)
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, (
+        data['name'],
+        data.get('category'),
+        data.get('location'),
+        data.get('contact'),
+        data.get('description'),
+        user_id
+    ))
+    conn.commit()
+    conn.close()
+
+    return jsonify({"msg": "Business created successfully"}), 201
+
 
 @app.route('/api/businesses', methods=['GET'])
 def get_businesses():
-    pass
+    conn = get_db_connection()
+    businesses = conn.execute("SELECT * FROM businesses").fetchall()
+    conn.close()
 
+    result = []
+    for biz in businesses:
+        result.append({
+            "id": biz["id"],
+            "name": biz["name"],
+            "category": biz["category"],
+            "location": biz["location"],
+            "contact": biz["contact"],
+            "description": biz["description"]
+        })
+
+    return jsonify(result), 200
 # --------------------- Main ---------------------
 
 if __name__ == '__main__':
