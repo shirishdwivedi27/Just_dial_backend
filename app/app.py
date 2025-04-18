@@ -1,20 +1,35 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
+from flask_mysqldb import MySQL
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 import os
+from dotenv import load_dotenv
 import logging
+
+load_dotenv()
+
 app = Flask(__name__)
 CORS(app)
 
 # --------------------- Configuration ---------------------
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:yourpassword@localhost/justdial_clone'
-app.config['SECRET_KEY'] = 'your_secret_key'
-app.config['JWT_SECRET_KEY'] = 'your_jwt_secret'
+app.config['MYSQL_HOST'] = os.getenv('MYSQL_HOST')
+app.config['MYSQL_USER'] = os.getenv('MYSQL_USER')
+app.config['MYSQL_PASSWORD'] = os.getenv('MYSQL_PASSWORD')
+app.config['MYSQL_DB'] = os.getenv('MYSQL_DB')
+app.config['MYSQL_PORT'] = int(os.getenv('MYSQL_PORT', 3306))
 
-db = SQLAlchemy(app)
+app_config = {
+    'JWT_SECRET_KEY':os.getenv('JWT'),
+    'APP_URL': os.getenv('APP_URL'),
+    'API_KEY': os.getenv('API_KEY'),
+    'API_SECRET': os.getenv('API_SECRET'),
+    'SECRET_KEY': os.getenv('SECRET_KEY')
+}
+
+
 jwt = JWTManager(app)
 
 
@@ -27,21 +42,61 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s: %(message)s",
 )
 
+mysql=MySQL(app)
 
-
-
-@app.route('test_db',methods=['GET'])
-def check_db():
+@app.route('/testdb')
+def test_db():
     try:
-        cursor=mysql.connection.cursor()
-        cursor.execute('SELECT 1')
-        return jsonify(message="DB connected"),200
-    except:
-        return jsonify(message="not connected"),401
+        cur = mysql.connection.cursor()
+        cur.execute("SELECT 1")
+        logging.info("hello")
+        print("DB")
+        return "DB Connected!"
+    except Exception as e:
+        return {"error": str(e)},400 
+    
 
-@app.route('/api/register', methods=['POST'])
+@app.route('/',methods=['GET'])
+def home():
+    data={"message":"welcome to react-world","name":"shirish"}
+    return jsonify(data),200
+    
+
+@app.route('/register', methods=['POST'])
 def register():
     data = request.get_json()
+
+    username = data.get('username')
+    email = data.get('email')
+    password = data.get('password')
+
+    if not username or not email or not password:
+        return jsonify({"error": "All fields are required"}), 400
+
+    cursor = mysql.connection.cursor()
+    cursor.execute("SELECT * FROM users WHERE username = %s OR email = %s", (username, email))
+    user = cursor.fetchone()
+    cursor.close()
+
+    if user:
+        return jsonify({"message": "User already exists. Please login."}), 409
+
+  
+    hashed_password = generate_password_hash(password)
+
+    cursor = mysql.connection.cursor()
+    cursor.execute("INSERT INTO users (username, password, org_password, email) VALUES (%s, %s, %s, %s)", 
+                   (username, hashed_password, password, email))
+    mysql.connection.commit()
+    cursor.close()
+
+    access_token = create_access_token(identity=email)
+
+    return jsonify({
+        "message": "User registered successfully!",
+        "access_token": access_token
+    }), 201
+
 
 @app.route('/api/login', methods=['POST'])
 def login():
