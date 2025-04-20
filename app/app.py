@@ -139,7 +139,7 @@ def create_business():
     #user_id = get_jwt_identity()
     #logging.info("____",user_id)
     #print(user_id)
-    cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)  #
+    cursor = mysql.connection.cursor()  #
     cursor.execute("""
     INSERT INTO businesses (name, category, location, contact, description, owner_id)
     VALUES (%s, %s, %s, %s, %s, %s)
@@ -149,32 +149,36 @@ def create_business():
     data.get('location'),
     data.get('contact'),
     data.get('description'),
-    'p'
+    12
     ))
-    cursor.commit()
+    mysql.connection.commit()
     cursor.close()
 
     return jsonify({"msg": "Business created successfully"}), 201
 
 
+
 @app.route('/businesses', methods=['GET'])
 def get_businesses():
-    conn = get_db_connection()
-    businesses = conn.execute("SELECT * FROM businesses").fetchall()
-    conn.close()
+    cursor = mysql.connection.cursor()
+    cursor.execute("SELECT name, category, location, contact, description FROM businesses")
+    businesses = cursor.fetchall()
+    cursor.close()
 
     result = []
-    for biz in businesses:
+    for idx, biz in enumerate(businesses):
         result.append({
-            "id": biz["id"],
-            "name": biz["name"],
-            "category": biz["category"],
-            "location": biz["location"],
-            "contact": biz["contact"],
-            "description": biz["description"]
+            "id": idx,
+            "name": biz[0],
+            "category": biz[1],
+            "location": biz[2],
+            "contact": biz[3],
+            "description": biz[4]
         })
 
     return jsonify(result), 200
+
+
 # --------------------- Main ---------------------
 
 if __name__ == '__main__':
