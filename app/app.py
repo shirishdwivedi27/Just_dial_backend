@@ -161,22 +161,42 @@ def create_business():
 @app.route('/businesses', methods=['GET'])
 def get_businesses():
     cursor = mysql.connection.cursor()
-    cursor.execute("SELECT name, category, location, contact, description FROM businesses")
+    cursor.execute("SELECT id, name, category, location, contact, description FROM businesses")
     businesses = cursor.fetchall()
     cursor.close()
-
+    #print(businesses)
     result = []
-    for idx, biz in enumerate(businesses):
+    for biz in businesses:
         result.append({
-            "id": idx,
-            "name": biz[0],
-            "category": biz[1],
-            "location": biz[2],
-            "contact": biz[3],
-            "description": biz[4]
+            "id": biz[0],
+            "name": biz[1],
+            "category": biz[2],
+            "location": biz[3],
+            "contact": biz[4],
+            "description": biz[5]
         })
 
     return jsonify(result), 200
+
+# business by id -> in future i have to check if id is primary key or not , right now i added manually
+@app.route('/businesses/<int:id>', methods=['GET'])
+def get_business(id):
+    cursor = mysql.connection.cursor()
+    cursor.execute("SELECT name, category, location, contact, description FROM businesses WHERE id = %s", (id,))
+    business = cursor.fetchone()
+    cursor.close()
+    print(business)
+    if business:
+        return jsonify({
+            "id": id,
+            "name": business[0],
+            "category": business[1],
+            "location": business[2],
+            "contact": business[3],
+            "description": business[4]
+        }), 200
+    else:
+        return jsonify({"message": "Business not found"}), 404
 
 
 if __name__ == '__main__':
