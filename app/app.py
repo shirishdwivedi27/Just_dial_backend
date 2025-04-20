@@ -179,7 +179,5 @@ def get_businesses():
     return jsonify(result), 200
 
 
-# --------------------- Main ---------------------
-
 if __name__ == '__main__':
     app.run(debug=True)
