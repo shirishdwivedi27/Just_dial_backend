@@ -65,13 +65,14 @@ def home():
 @jwt_required()
 def protected():
     current_user = get_jwt_identity()
+    print(current_user)
     return jsonify(logged_in_as=current_user)
 
 
 @app.route('/register', methods=['POST'])
 def register():
     data = request.get_json()
-
+    user_id=data.get('user_id')
     username = data.get('username')
     email = data.get('email')
     password = data.get('password')
@@ -91,8 +92,8 @@ def register():
     hashed_password = generate_password_hash(password)
 
     cursor = mysql.connection.cursor()
-    cursor.execute("INSERT INTO users (username, password, org_password, email) VALUES (%s, %s, %s, %s)", 
-                   (username, hashed_password, password, email))
+    cursor.execute("INSERT INTO users (user_id,username, password, org_password, email) VALUES (%s,%s, %s, %s, %s)", 
+                   (user_id,username, hashed_password, password, email))
     mysql.connection.commit()
     cursor.close()
 
@@ -110,6 +111,7 @@ def get_db_connection():
 @app.route('/login', methods=['POST'])
 def login():
     data = request.get_json()
+    user_id=data.get('user_id')
     email = data.get('email')
     password = data.get('password')
 
@@ -119,9 +121,11 @@ def login():
     cursor.close()
 
     logging.info(user['username'])
+    logging.info(user['user_id'])
+    print(user['user_id'])
 
     if user and check_password_hash(user['password'], password):
-        access_token = create_access_token(identity=user['username'])
+        access_token = create_access_token(identity=user['user_id'])
         return jsonify({
             "access_token": access_token,
             "user": {
@@ -136,9 +140,9 @@ def login():
 @jwt_required()
 def create_business():
     data = request.get_json()
-    #user_id = get_jwt_identity()
+    user_id = get_jwt_identity()
     #logging.info("____",user_id)
-    #print(user_id)
+    print(user_id)
     cursor = mysql.connection.cursor()  #
     cursor.execute("""
     INSERT INTO businesses (name, category, location, contact, description, owner_id)
@@ -149,7 +153,7 @@ def create_business():
     data.get('location'),
     data.get('contact'),
     data.get('description'),
-    12
+    str(user_id)
     ))
     mysql.connection.commit()
     cursor.close()
@@ -159,15 +163,19 @@ def create_business():
 
 
 @app.route('/businesses', methods=['GET'])
+
 def get_businesses():
+    
     cursor = mysql.connection.cursor()
-    cursor.execute("SELECT id, name, category, location, contact, description FROM businesses")
+    cursor.execute("SELECT id, name, category, location, contact, description,owner_id FROM businesses")
     businesses = cursor.fetchall()
     cursor.close()
+    
     #print(businesses)
     result = []
     for biz in businesses:
         result.append({
+            "owner_id":biz[6],
             "id": biz[0],
             "name": biz[1],
             "category": biz[2],
