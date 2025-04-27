@@ -142,7 +142,7 @@ def create_business():
     data = request.get_json()
     user_id = get_jwt_identity()
     #logging.info("____",user_id)
-    print(user_id)
+    print("aa",user_id)  #A1 this is user id
     cursor = mysql.connection.cursor()  #
     cursor.execute("""
     INSERT INTO businesses (name, category, location, contact, description, owner_id)
@@ -153,7 +153,7 @@ def create_business():
     data.get('location'),
     data.get('contact'),
     data.get('description'),
-    str(user_id)
+    user_id
     ))
     mysql.connection.commit()
     cursor.close()
@@ -163,14 +163,12 @@ def create_business():
 
 
 @app.route('/businesses', methods=['GET'])
-
 def get_businesses():
-    
     cursor = mysql.connection.cursor()
     cursor.execute("SELECT id, name, category, location, contact, description,owner_id FROM businesses")
     businesses = cursor.fetchall()
     cursor.close()
-    
+    print(businesses)
     #print(businesses)
     result = []
     for biz in businesses:
@@ -190,7 +188,7 @@ def get_businesses():
 @app.route('/businesses/<int:id>', methods=['GET'])
 def get_business(id):
     cursor = mysql.connection.cursor()
-    cursor.execute("SELECT name, category, location, contact, description FROM businesses WHERE id = %s", (id,))
+    cursor.execute("SELECT name, category, location, contact, description, owner_id FROM businesses WHERE id = %s", (id,))
     business = cursor.fetchone()
     cursor.close()
     print(business)
@@ -201,7 +199,8 @@ def get_business(id):
             "category": business[1],
             "location": business[2],
             "contact": business[3],
-            "description": business[4]
+            "description": business[4],
+            "Owner_ID":business[5]
         }), 200
     else:
         return jsonify({"message": "Business not found"}), 404
