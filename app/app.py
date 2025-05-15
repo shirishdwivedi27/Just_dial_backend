@@ -183,7 +183,7 @@ def get_businesses():
         })
 
     return jsonify(result), 200
-
+#check and update api to start new api's after 7 may
 # business by id -> in future i have to check if id is primary key or not , right now i added manually
 @app.route('/businesses/<int:id>', methods=['GET'])
 def get_business(id):
